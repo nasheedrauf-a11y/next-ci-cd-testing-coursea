@@ -1,0 +1,10 @@
+services:
+  nextjs-prod:
+    build: .
+    container_name: nextjs-prod
+    environment:
+      - NEXT_PUBLIC_APP_NAME=Production App
+      - NEXT_PUBLIC_API_URL=https://api.example.com
+    ports:
+      - "80:3000"
+    restart: unless-stopped

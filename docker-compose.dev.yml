@@ -1,0 +1,9 @@
+services:
+  nextjs-dev:
+    build: .
+    container_name: nextjs-dev
+    environment:
+      - NEXT_PUBLIC_APP_NAME=Development Environment
+      - NEXT_PUBLIC_API_URL=https://dev-api.example.com
+    ports:
+      - "3000:3000"

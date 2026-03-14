@@ -1,0 +1,39 @@
+services:
+  nextjs-app:
+    build: .
+    container_name: nextjs-with-db
+    environment:
+      # App configuration
+      - NEXT_PUBLIC_APP_NAME=Next.js with Database
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      # Database configuration (connects to host PostgreSQL)
+      - DB_HOST=host.docker.internal
+      - DB_PORT=5432
+      - DB_NAME=colors
+      - DB_USER=postgres
+      - DB_PASSWORD=admin
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Optional: Run PostgreSQL in Docker alongside your app
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=colors
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
