@@ -173,4 +173,3 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
         continue-on-error: true
-```
