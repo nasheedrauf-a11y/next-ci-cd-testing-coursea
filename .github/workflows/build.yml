@@ -1,0 +1,26 @@
+name: Build Only
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Build Next.js
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22x
+          cache: npm
+      - name: Install deps
+        run: npm ci
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+      - name: Verify build
+        run: |
+          test -d .next || exit 1
+          echo Build successful
