@@ -4,7 +4,45 @@ services:
     container_name: nextjs-prod
     environment:
       - NEXT_PUBLIC_APP_NAME=Production App
-      - NEXT_PUBLIC_API_URL=https://api.example.com
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=colors
+      - DB_USER=postgres
+      - DB_PASSWORD=admin
     ports:
       - "80:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-prod
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=colors
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-prod-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres-prod-data:

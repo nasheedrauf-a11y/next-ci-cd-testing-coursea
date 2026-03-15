@@ -4,6 +4,44 @@ services:
     container_name: nextjs-dev
     environment:
       - NEXT_PUBLIC_APP_NAME=Development Environment
-      - NEXT_PUBLIC_API_URL=https://dev-api.example.com
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=colors
+      - DB_USER=postgres
+      - DB_PASSWORD=admin
     ports:
       - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-dev
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=colors
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge

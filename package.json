@@ -5,11 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "npm run init:db && next start",
     "lint": "eslint",
-    "db:health": "ts-node scripts/check-db.ts",
-    "db:setup": "ts-node scripts/setup-db.ts",
-    "db:seed": "ts-node scripts/seed-db.ts"
+    "db:health": "curl http://localhost:3000/api/db-health",
+    "db:setup": "node scripts/init-db.js",
+    "init:db": "node scripts/init-db.js"
   },
   "dependencies": {
     "clsx": "^2.1.1",

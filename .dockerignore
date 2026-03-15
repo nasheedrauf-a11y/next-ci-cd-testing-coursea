@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.gitignore
+.eslintrc.json
+.env
+.env.local
+.vscode
+coverage
+*.log
+Dockerfile
+docker-compose*.yml
+*.md
+lib/db.ts.backup
