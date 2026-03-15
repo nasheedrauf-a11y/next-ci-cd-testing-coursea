@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: '22x'
+  NODE_VERSION: '22'
 
 jobs:
   # Job 1: Code Quality & Linting
