@@ -33,4 +33,4 @@ RUN npm run build || true
 EXPOSE 3000
 
 # Start the application
-CMD node /scripts/init-db.js && node_modules/.bin/next start
+CMD ["sh", "-c", "node /scripts/init-db.js && node_modules/.bin/next start"]
