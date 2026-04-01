@@ -53,9 +53,18 @@ export async function initializeDatabase(): Promise<void> {
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         name VARCHAR(255) NOT NULL,
+        password_hash VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `)
+
+    // Add password_hash column if it doesn't exist (migration for existing tables)
+    await pool.query(`
+      DO $$ BEGIN
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+      EXCEPTION WHEN duplicate_column THEN NULL;
+      END $$;
     `)
     console.log('Users table created/verified')
     

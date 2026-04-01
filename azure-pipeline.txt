@@ -1,0 +1,166 @@
+trigger:
+  branches:
+    include:
+      - master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  NODE_VERSION: '22.x'
+  NEXT_TELEMETRY_DISABLED: '1'
+  # Database Configuration
+  DB_HOST: 'your-db-server.postgres.database.azure.com'
+  DB_PORT: '5432'
+  DB_NAME: 'myapp'
+  DB_USER: 'postgres'
+  DB_PASSWORD: 'your-db-password'           # Set as secret variable in Azure DevOps UI
+  # App Configuration
+  NEXT_PUBLIC_APP_NAME: 'My App'
+  NEXT_PUBLIC_API_URL: 'https://your-app-name.azurewebsites.net'
+  # NextAuth Configuration
+  AUTH_SECRET: 'your-secret-key-min-32-chars' # Set as secret variable in Azure DevOps UI
+  AUTH_URL: 'https://your-app-name.azurewebsites.net'
+  # Azure Deployment
+  AZURE_SUBSCRIPTION: 'your-azure-service-connection-name'
+  APP_SERVICE_NAME: 'your-app-service-name'
+  # Azure Container Registry
+  ACR_NAME: 'your-acr-name'
+  ACR_LOGIN_SERVER: 'your-acr-name.azurecr.io'
+  ACR_SERVICE_CONNECTION: 'your-acr-service-connection-name'
+  IMAGE_NAME: 'nextjs-app'
+
+stages:
+  - stage: Build
+    displayName: 'Build & Test'
+    jobs:
+      - job: BuildJob
+        displayName: 'Install, Lint & Build'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '$(NODE_VERSION)'
+            displayName: 'Install Node.js'
+
+          - script: npm ci
+            displayName: 'Install dependencies'
+
+          - script: npm run lint
+            displayName: 'Run ESLint'
+
+          - script: npm run build
+            displayName: 'Build Next.js app'
+            env:
+              DB_HOST: $(DB_HOST)
+              DB_PORT: $(DB_PORT)
+              DB_NAME: $(DB_NAME)
+              DB_USER: $(DB_USER)
+              DB_PASSWORD: $(DB_PASSWORD)
+              AUTH_SECRET: $(AUTH_SECRET)
+              AUTH_URL: $(AUTH_URL)
+              NEXT_PUBLIC_APP_NAME: $(NEXT_PUBLIC_APP_NAME)
+              NEXT_PUBLIC_API_URL: $(NEXT_PUBLIC_API_URL)
+
+          - task: CopyFiles@2
+            displayName: 'Copy standalone output'
+            inputs:
+              sourceFolder: '$(Build.SourcesDirectory)/.next/standalone'
+              contents: '**'
+              targetFolder: '$(Build.ArtifactStagingDirectory)/standalone'
+
+          - task: CopyFiles@2
+            displayName: 'Copy static assets'
+            inputs:
+              sourceFolder: '$(Build.SourcesDirectory)/.next/static'
+              contents: '**'
+              targetFolder: '$(Build.ArtifactStagingDirectory)/standalone/.next/static'
+
+          - task: CopyFiles@2
+            displayName: 'Copy public folder'
+            inputs:
+              sourceFolder: '$(Build.SourcesDirectory)/public'
+              contents: '**'
+              targetFolder: '$(Build.ArtifactStagingDirectory)/standalone/public'
+            condition: succeededOrFailed()
+
+          - task: ArchiveFiles@2
+            displayName: 'Archive build output'
+            inputs:
+              rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/standalone'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/nextjs-app.zip'
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish artifact'
+            inputs:
+              pathToPublish: '$(Build.ArtifactStagingDirectory)/nextjs-app.zip'
+              artifactName: 'drop'
+
+  - stage: DockerBuildPush
+    displayName: 'Docker Build & Push to ACR'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: DockerJob
+        displayName: 'Build & Push Docker Image'
+        steps:
+          - task: Docker@2
+            displayName: 'Login to ACR'
+            inputs:
+              command: login
+              containerRegistry: '$(ACR_SERVICE_CONNECTION)'
+
+          - task: Docker@2
+            displayName: 'Build Docker Image'
+            inputs:
+              command: build
+              repository: '$(IMAGE_NAME)'
+              containerRegistry: '$(ACR_SERVICE_CONNECTION)'
+              dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+              buildContext: '$(Build.SourcesDirectory)'
+              tags: |
+                $(Build.BuildId)
+                latest
+
+          - task: Docker@2
+            displayName: 'Push Docker Image to ACR'
+            inputs:
+              command: push
+              repository: '$(IMAGE_NAME)'
+              containerRegistry: '$(ACR_SERVICE_CONNECTION)'
+              tags: |
+                $(Build.BuildId)
+                latest
+
+  - stage: Deploy
+    displayName: 'Deploy to Azure'
+    dependsOn: DockerBuildPush
+    condition: succeeded()
+    jobs:
+      - deployment: DeployJob
+        displayName: 'Deploy to App Service'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to Azure Web App'
+                  inputs:
+                    azureSubscription: '$(AZURE_SUBSCRIPTION)'
+                    appType: 'webAppLinux'
+                    appName: '$(APP_SERVICE_NAME)'
+                    package: '$(Pipeline.Workspace)/drop/nextjs-app.zip'
+                    startUpCommand: 'node server.js'
+                    appSettings: |
+                      -DB_HOST $(DB_HOST)
+                      -DB_PORT $(DB_PORT)
+                      -DB_NAME $(DB_NAME)
+                      -DB_USER $(DB_USER)
+                      -DB_PASSWORD $(DB_PASSWORD)
+                      -AUTH_SECRET $(AUTH_SECRET)
+                      -AUTH_URL $(AUTH_URL)
+                      -NEXT_PUBLIC_APP_NAME "$(NEXT_PUBLIC_APP_NAME)"
+                      -NEXT_PUBLIC_API_URL $(NEXT_PUBLIC_API_URL)
+                      -NODE_ENV production
